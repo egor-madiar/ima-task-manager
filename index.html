@@ -1193,15 +1193,59 @@ function renderLogin() {
   });
 }
 
-function showLogin() {
+function showLogin(_fromHistory) {
   document.getElementById('login').style.display = 'flex';
   document.getElementById('app').classList.remove('active');
+  if (!_fromHistory && history.state?.screen !== 'login') {
+    history.pushState({ screen: 'login' }, '');
+  }
 }
 
-function showApp() {
+function showApp(_fromHistory) {
   document.getElementById('login').style.display = 'none';
   document.getElementById('app').classList.add('active');
   render();
+  if (!_fromHistory && history.state?.screen !== 'app') {
+    history.pushState({ screen: 'app' }, '');
+  }
+}
+
+function handlePopState(e) {
+  const s = e.state || {};
+  const modal = document.getElementById('task-modal');
+  const isModalOpen = modal.classList.contains('open');
+
+  // If history points to app but user is gone, force login (close any modal too)
+  if (s.screen === 'app' && !state.currentUser) {
+    if (isModalOpen) {
+      modal.classList.remove('open');
+      state.editingTaskId = null;
+    }
+    showLogin(true);
+    history.replaceState({ screen: 'login' }, '');
+    return;
+  }
+
+  // Sync modal visibility
+  if (s.modal) {
+    if (!isModalOpen) {
+      openModal(s.modal === 'new' ? null : s.modal, null, true);
+    }
+  } else if (isModalOpen) {
+    modal.classList.remove('open');
+    state.editingTaskId = null;
+  }
+
+  // Sync screen
+  if (s.screen === 'login') {
+    if (state.currentUser) {
+      state.currentUser = null;
+      localStorage.removeItem(USER_KEY);
+    }
+    showLogin(true);
+  } else if (s.screen === 'app' && state.currentUser) {
+    showApp(true);
+  }
 }
 
 /* ============== Render ============== */
@@ -1549,7 +1593,7 @@ function renderList(tasks) {
 
 /* ============== Modal ============== */
 
-function openModal(taskId, prefill) {
+function openModal(taskId, prefill, _fromHistory) {
   state.editingTaskId = taskId;
   const isNew = !taskId;
   const t = taskId
@@ -1638,11 +1682,19 @@ function openModal(taskId, prefill) {
 
   document.getElementById('task-modal').classList.add('open');
   setTimeout(() => document.getElementById('f-title').focus(), 50);
+
+  if (!_fromHistory) {
+    history.pushState({ screen: 'app', modal: taskId || 'new' }, '');
+  }
 }
 
 function closeModal() {
-  document.getElementById('task-modal').classList.remove('open');
-  state.editingTaskId = null;
+  if (history.state?.modal) {
+    history.back();
+  } else {
+    document.getElementById('task-modal').classList.remove('open');
+    state.editingTaskId = null;
+  }
 }
 
 function renderSubtasksField(subtasks) {
@@ -1837,7 +1889,12 @@ function setupEvents() {
 loadState();
 renderLogin();
 setupEvents();
-if (state.currentUser) showApp();
+window.addEventListener('popstate', handlePopState);
+history.replaceState({ screen: 'login' }, '');
+if (state.currentUser) {
+  history.pushState({ screen: 'app' }, '');
+  showApp(true);
+}
 </script>
 </body>
 </html>
