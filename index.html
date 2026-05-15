@@ -676,6 +676,52 @@
   }
   .item-list .item .drive-badge { margin-right: 4px; }
 
+  /* Demo hints (stickers) */
+  .demo-hint {
+    background: #fef3c7;
+    border: 1px dashed #f59e0b;
+    border-radius: 8px;
+    padding: 8px 10px 8px 32px;
+    margin: 0 0 12px;
+    font-size: 12px;
+    color: #92400e;
+    line-height: 1.45;
+    position: relative;
+  }
+  .demo-hint::before {
+    content: '💡';
+    position: absolute;
+    left: 9px;
+    top: 7px;
+  }
+  .demo-hint b { color: #78350f; font-weight: 600; }
+  .demo-hint.banner {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    margin: 0 0 14px;
+    padding: 10px 14px 10px 36px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .demo-hint.banner::before { top: 9px; left: 13px; }
+  #login .demo-hint {
+    max-width: 420px;
+    margin: 14px 16px 0;
+    text-align: left;
+  }
+  .demo-toggle {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-weight: 500;
+  }
+  .demo-toggle:hover { background: #fde68a; }
+  body.no-demo-hints .demo-hint { display: none; }
+  body.no-demo-hints .demo-toggle::before { content: '👁 '; }
+
   /* Drive help modal */
   .drive-help {
     background: #eff6ff;
@@ -737,6 +783,11 @@
   <h1>IMA — Task Manager</h1>
   <p>Выберите, кто вы — начнём работу</p>
   <div class="users" id="login-users"></div>
+  <div class="demo-hint">
+    <b>Это демо.</b> Жми на любую роль — войдёшь без пароля.
+    У каждого пользователя свой набор задач: «мои», «поставленные мной» и т.д.
+    Можно переключаться между ролями в шапке.
+  </div>
 </div>
 
 <!-- App -->
@@ -747,6 +798,7 @@
       <span>IMA — Task Manager</span>
     </div>
     <div class="sep"></div>
+    <button class="demo-toggle" id="demo-toggle-btn">🎭 Скрыть подсказки</button>
     <button class="ghost" id="settings-btn">⚙ Настройки</button>
     <button class="primary" id="new-task-btn">+ Новая задача</button>
     <div class="me" id="me-pill" title="Сменить пользователя"></div>
@@ -765,6 +817,11 @@
 
   <main class="layout">
     <aside class="sidebar">
+      <div class="demo-hint">
+        <b>Это сайдбар с фильтрами.</b> Кликни «Мои» — увидишь только задачи, где ты исполнитель.
+        «Поставленные мной» — те, что ты сама поставила. «Просроченные» — горящие.
+        Внизу — список из 11 проектов, клик фильтрует по проекту.
+      </div>
       <div class="filter-group">
         <h3>Задачи</h3>
         <button class="filter-btn" data-filter="all">
@@ -801,6 +858,12 @@
     </aside>
 
     <section class="board">
+      <div class="demo-hint banner">
+        <b>Главная.</b> Жми <b>«+ Новая задача»</b> в шапке — попробуй создать.
+        Три режима справа: <b>Канбан</b> (по статусам), <b>Список</b> (таблица),
+        <b>Календарь</b> (по датам, повторяющиеся помечены ⟳).
+        Клик по карточке задачи — открывает редактирование.
+      </div>
       <div class="board-header">
         <div>
           <h2 id="board-title">Все задачи</h2>
@@ -825,6 +888,12 @@
       <button class="close" id="modal-close">×</button>
     </div>
     <div class="modal-body" id="modal-body">
+      <div class="demo-hint">
+        <b>Карточка задачи.</b> Исполнителей и проекты можно выбирать сразу несколько —
+        кликай на пилюли. Повторение — для рутинных задач (каждую неделю / месяц).
+        Ссылки на Google Docs/Sheets распознаются автоматически — кнопка 📁 Google Drive
+        откроет Drive в новой вкладке.
+      </div>
       <!-- author info appears here when editing -->
       <div id="task-meta-info"></div>
 
@@ -938,6 +1007,7 @@ const STATUSES = [
 
 const STORAGE_KEY = 'ima-academy-tasks-v1';
 const USER_KEY    = 'ima-academy-user-v1';
+const HINTS_KEY   = 'ima-academy-hints-hidden-v1';
 
 const DEMO_TASKS = [
   {
@@ -963,7 +1033,7 @@ const DEMO_TASKS = [
   {
     id: 't2',
     title: 'Проверить Google-анкету с отзывами',
-    description: 'Студенты оставляют отзывы за бесплатное мини-обучение. Проверять — нет ли новых ответов, рассортировать.',
+    description: 'Студенты оставляют отзывы за бесплатное мини-обучение. Каждую неделю — кто новый, рассортировать.',
     author: 'evelina',
     assignees: ['evelina'],
     projects: ['ima-cosm-cz', 'ima-cosm-ru', 'ima-lek-cz'],
@@ -974,6 +1044,96 @@ const DEMO_TASKS = [
     attachments: [{ title: 'Google Forms — отзывы', url: 'https://docs.google.com/forms/' }],
     subtasks: [],
     createdAt: '2026-05-11T09:00:00Z'
+  },
+  {
+    id: 't3',
+    title: 'Обзвонить базу врачей после гайда «носогубка»',
+    description: '~80 контактов после бесплатного гайда. Цель — рассказать про основное обучение по морщинам.',
+    author: 'evelina',
+    assignees: ['katerina', 'elizaveta'],
+    projects: ['ima-lek-cz', 'ima-lek-eng'],
+    priority: 'med',
+    status: 'in_progress',
+    deadline: '2026-05-14',
+    recurring: '',
+    attachments: [{ title: 'База контактов «носогубка»', url: 'https://docs.google.com/spreadsheets/' }],
+    subtasks: [
+      { title: 'Скрипт обзвона', done: true },
+      { title: 'Поделить базу пополам', done: true },
+      { title: 'Прозвонить часть Катерины (40)', done: false },
+      { title: 'Прозвонить часть Елизаветы (40)', done: false }
+    ],
+    createdAt: '2026-05-12T14:30:00Z'
+  },
+  {
+    id: 't4',
+    title: 'Поздравить Елизавету с днём рождения',
+    description: 'Подарок, открытка, общая фотка.',
+    author: 'katerina',
+    assignees: ['katerina', 'darya', 'evelina'],
+    projects: [],
+    priority: 'low',
+    status: 'done',
+    deadline: '2026-05-13',
+    recurring: '',
+    attachments: [],
+    subtasks: [
+      { title: 'Подарок', done: true },
+      { title: 'Открытка', done: true }
+    ],
+    createdAt: '2026-05-10T09:00:00Z'
+  },
+  {
+    id: 't5',
+    title: 'Ежемесячный отчёт по конверсиям курсов',
+    description: 'Сводка по всем направлениям: записались / дошли / купили основной продукт.',
+    author: 'darya',
+    assignees: ['evelina'],
+    projects: ['ima-cosm-cz', 'ima-cosm-ru', 'ima-lek-cz', 'ima-lek-eng'],
+    priority: 'med',
+    status: 'new',
+    deadline: '2026-05-31',
+    recurring: 'monthly',
+    attachments: [],
+    subtasks: [],
+    createdAt: '2026-05-01T08:00:00Z'
+  },
+  {
+    id: 't6',
+    title: 'Контент-план для коворкинга на июнь',
+    description: 'Соц.сети ima-coworking — нужен месячный контент-план: посты, рилзы, сторис.',
+    author: 'darya',
+    assignees: ['evelina'],
+    projects: ['ima-coworking'],
+    priority: 'med',
+    status: 'new',
+    deadline: '2026-05-25',
+    recurring: '',
+    attachments: [],
+    subtasks: [
+      { title: 'Анализ конкурентов', done: false },
+      { title: 'Темы рубрик', done: false },
+      { title: 'Календарь публикаций', done: false }
+    ],
+    createdAt: '2026-05-13T15:00:00Z'
+  },
+  {
+    id: 't7',
+    title: 'Подготовить материалы к следующему набору врачей (CZ)',
+    description: 'Папка с раздаточкой, чек-листами и расписанием.',
+    author: 'elizaveta',
+    assignees: ['elizaveta'],
+    projects: ['ima-lek-cz'],
+    priority: 'low',
+    status: 'new',
+    deadline: '2026-05-28',
+    recurring: '',
+    attachments: [{ title: 'Шаблон раздаточки', url: 'https://docs.google.com/document/' }],
+    subtasks: [
+      { title: 'Раздаточка', done: false },
+      { title: 'Чек-листы', done: false }
+    ],
+    createdAt: '2026-05-13T16:00:00Z'
   }
 ];
 
@@ -1020,6 +1180,19 @@ function clearAll() {
   state.tasks = [];
   saveState();
   render();
+}
+
+function loadDemoHintsState() {
+  if (localStorage.getItem(HINTS_KEY) === '1') {
+    document.body.classList.add('no-demo-hints');
+  }
+}
+
+function toggleDemoHints() {
+  const hidden = document.body.classList.toggle('no-demo-hints');
+  localStorage.setItem(HINTS_KEY, hidden ? '1' : '0');
+  const btn = document.getElementById('demo-toggle-btn');
+  if (btn) btn.textContent = hidden ? '🎭 Показать подсказки' : '🎭 Скрыть подсказки';
 }
 
 function exportData() {
@@ -1833,6 +2006,7 @@ function setupEvents() {
     btn.addEventListener('click', () => {
       state.filter.type = btn.dataset.filter;
       state.filter.priority = null;
+      state.filter.projectId = null;
       render();
     });
   });
@@ -1860,6 +2034,13 @@ function setupEvents() {
   document.addEventListener('click', (e) => {
     if (!menu.contains(e.target) && e.target.id !== 'settings-btn') menu.classList.remove('open');
   });
+  document.getElementById('demo-toggle-btn').addEventListener('click', () => {
+    toggleDemoHints();
+  });
+  // Reflect initial state on the toggle button label
+  if (document.body.classList.contains('no-demo-hints')) {
+    document.getElementById('demo-toggle-btn').textContent = '🎭 Показать подсказки';
+  }
   document.getElementById('reset-demo-btn').addEventListener('click', () => { menu.classList.remove('open'); resetDemo(); });
   document.getElementById('clear-btn').addEventListener('click', () => { menu.classList.remove('open'); clearAll(); });
   document.getElementById('export-btn').addEventListener('click', () => { menu.classList.remove('open'); exportData(); });
@@ -1887,6 +2068,7 @@ function setupEvents() {
 /* ============== Init ============== */
 
 loadState();
+loadDemoHintsState();
 renderLogin();
 setupEvents();
 window.addEventListener('popstate', handlePopState);
