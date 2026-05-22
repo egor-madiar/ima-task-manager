@@ -192,6 +192,24 @@
   }
   .sidebar .filter-btn.active .count { background: white; color: var(--accent); }
 
+  .sidebar .assignee-btn .ass-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sidebar .assignee-btn .ass-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    color: white;
+    font-weight: 600;
+    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
   .project-row {
     padding: 8px 10px;
     border-radius: 6px;
@@ -818,9 +836,10 @@
   <main class="layout">
     <aside class="sidebar">
       <div class="demo-hint">
-        <b>Это сайдбар с фильтрами.</b> Кликни «Мои» — увидишь только задачи, где ты исполнитель.
+        <b>Это сайдбар с фильтрами.</b> «Мои» — задачи, где ты исполнитель.
         «Поставленные мной» — те, что ты сама поставила. «Просроченные» — горящие.
-        Внизу — список из 11 проектов, клик фильтрует по проекту.
+        <b>«Сотрудники»</b> — все задачи конкретного человека (например, что висит на Лизе).
+        Ниже — 11 проектов: клик фильтрует по проекту.
       </div>
       <div class="filter-group">
         <h3>Задачи</h3>
@@ -849,6 +868,11 @@
         <button class="filter-btn" data-priority="low">
           <span><span class="priority-dot low"></span>Низкий</span><span class="count" id="cnt-pri-low">0</span>
         </button>
+      </div>
+
+      <div class="filter-group">
+        <h3>Сотрудники</h3>
+        <div id="assignees-list"></div>
       </div>
 
       <div class="filter-group">
@@ -1140,7 +1164,7 @@ const DEMO_TASKS = [
 let state = {
   currentUser: null,
   tasks: [],
-  filter: { type: 'all', projectId: null, priority: null },
+  filter: { type: 'all', projectId: null, priority: null, assigneeId: null },
   view: 'board',
   editingTaskId: null,
   calendarMonth: null  // YYYY-MM string; defaults to current month on init
@@ -1343,6 +1367,9 @@ function filteredTasks() {
   if (f.priority) {
     list = list.filter(t => t.priority === f.priority);
   }
+  if (f.assigneeId) {
+    list = list.filter(t => (t.assignees || []).includes(f.assigneeId));
+  }
   return list;
 }
 
@@ -1450,6 +1477,29 @@ function render() {
     btn.classList.toggle('active', state.filter.priority === btn.dataset.priority);
   });
 
+  // assignees list (filter by who the task is assigned to)
+  const assWrap = document.getElementById('assignees-list');
+  assWrap.innerHTML = USERS.map(u => {
+    const count = state.tasks.filter(t => (t.assignees || []).includes(u.id)).length;
+    const isActive = state.filter.assigneeId === u.id;
+    return `
+      <button class="filter-btn assignee-btn${isActive ? ' active' : ''}" data-assignee-id="${u.id}">
+        <span class="ass-row">
+          <span class="ass-avatar" style="background:${u.color}">${initials(u.name)}</span>
+          <span>${u.name}</span>
+        </span>
+        <span class="count">${count}</span>
+      </button>
+    `;
+  }).join('');
+  assWrap.querySelectorAll('.assignee-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.assigneeId;
+      state.filter.assigneeId = state.filter.assigneeId === uid ? null : uid;
+      render();
+    });
+  });
+
   // projects list
   const projWrap = document.getElementById('projects-list');
   projWrap.innerHTML = PROJECTS.map(p => {
@@ -1484,6 +1534,10 @@ function render() {
   if (state.filter.projectId) {
     const p = project(state.filter.projectId);
     title = p ? p.name : title;
+  }
+  if (state.filter.assigneeId) {
+    const u = user(state.filter.assigneeId);
+    if (u) title = `Задачи: ${u.name}`;
   }
   document.getElementById('board-title').textContent = title;
   const f = filteredTasks();
@@ -2007,6 +2061,7 @@ function setupEvents() {
       state.filter.type = btn.dataset.filter;
       state.filter.priority = null;
       state.filter.projectId = null;
+      state.filter.assigneeId = null;
       render();
     });
   });
