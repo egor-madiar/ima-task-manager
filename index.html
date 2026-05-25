@@ -260,6 +260,41 @@
     letter-spacing: -0.01em;
   }
   .board-header .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .board-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .hide-done-toggle {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 12px;
+    font-size: 13px;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hide-done-toggle:hover { background: #f3f4f6; color: var(--text); }
+  .hide-done-toggle.active {
+    background: #ecfdf5;
+    border-color: #6ee7b7;
+    color: var(--ok);
+  }
+  .hide-done-toggle .icon { font-size: 14px; }
+  .hide-done-toggle .badge {
+    background: rgba(0,0,0,0.06);
+    color: inherit;
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 2px;
+  }
+  .hide-done-toggle.active .badge { background: rgba(5,150,105,0.15); }
+
   .board-header .view-toggle {
     display: flex; gap: 4px;
     background: var(--panel);
@@ -893,10 +928,17 @@
           <h2 id="board-title">Все задачи</h2>
           <div class="sub" id="board-sub">—</div>
         </div>
-        <div class="view-toggle">
-          <button data-view="board" class="active">Канбан</button>
-          <button data-view="list">Список</button>
-          <button data-view="calendar">Календарь</button>
+        <div class="board-controls">
+          <button class="hide-done-toggle" id="hide-done-btn" title="Скрыть/показать выполненные задачи (только UI, данные сохраняются)">
+            <span class="icon">✓</span>
+            <span class="hide-done-label">Скрыть выполненные</span>
+            <span class="badge" id="hide-done-badge" style="display:none">0</span>
+          </button>
+          <div class="view-toggle">
+            <button data-view="board" class="active">Канбан</button>
+            <button data-view="list">Список</button>
+            <button data-view="calendar">Календарь</button>
+          </div>
         </div>
       </div>
       <div id="board-content"></div>
@@ -1029,9 +1071,10 @@ const STATUSES = [
   { id: 'done',        label: 'Выполнена'}
 ];
 
-const STORAGE_KEY = 'ima-academy-tasks-v1';
-const USER_KEY    = 'ima-academy-user-v1';
-const HINTS_KEY   = 'ima-academy-hints-hidden-v1';
+const STORAGE_KEY      = 'ima-academy-tasks-v1';
+const USER_KEY         = 'ima-academy-user-v1';
+const HINTS_KEY        = 'ima-academy-hints-hidden-v1';
+const HIDE_DONE_KEY    = 'ima-academy-hide-done-v1';
 
 const DEMO_TASKS = [
   {
@@ -1167,7 +1210,8 @@ let state = {
   filter: { type: 'all', projectId: null, priority: null, assigneeId: null },
   view: 'board',
   editingTaskId: null,
-  calendarMonth: null  // YYYY-MM string; defaults to current month on init
+  calendarMonth: null,  // YYYY-MM string; defaults to current month on init
+  hideCompleted: false  // UI-only: hides status=done from views; data preserved
 };
 
 /* ============== Persistence ============== */
@@ -1210,6 +1254,16 @@ function loadDemoHintsState() {
   if (localStorage.getItem(HINTS_KEY) === '1') {
     document.body.classList.add('no-demo-hints');
   }
+}
+
+function loadHideCompletedState() {
+  state.hideCompleted = localStorage.getItem(HIDE_DONE_KEY) === '1';
+}
+
+function toggleHideCompleted() {
+  state.hideCompleted = !state.hideCompleted;
+  localStorage.setItem(HIDE_DONE_KEY, state.hideCompleted ? '1' : '0');
+  render();
 }
 
 function toggleDemoHints() {
@@ -1370,6 +1424,9 @@ function filteredTasks() {
   if (f.assigneeId) {
     list = list.filter(t => (t.assignees || []).includes(f.assigneeId));
   }
+  if (state.hideCompleted) {
+    list = list.filter(t => t.status !== 'done');
+  }
   return list;
 }
 
@@ -1452,6 +1509,25 @@ function handlePopState(e) {
 
 function render() {
   if (!state.currentUser) { showLogin(); return; }
+
+  // hide-completed toggle state
+  const hideBtn = document.getElementById('hide-done-btn');
+  if (hideBtn) {
+    hideBtn.classList.toggle('active', state.hideCompleted);
+    const label = hideBtn.querySelector('.hide-done-label');
+    if (label) label.textContent = state.hideCompleted ? 'Показать выполненные' : 'Скрыть выполненные';
+    const badge = document.getElementById('hide-done-badge');
+    if (badge) {
+      // Count tasks that would be visible if NOT hiding, that are done — those are the ones currently hidden
+      const wouldHide = state.tasks.filter(t => t.status === 'done').length;
+      if (state.hideCompleted && wouldHide > 0) {
+        badge.style.display = '';
+        badge.textContent = wouldHide;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  }
 
   // me pill
   const me = user(state.currentUser);
@@ -2092,6 +2168,9 @@ function setupEvents() {
   document.getElementById('demo-toggle-btn').addEventListener('click', () => {
     toggleDemoHints();
   });
+  document.getElementById('hide-done-btn').addEventListener('click', () => {
+    toggleHideCompleted();
+  });
   // Reflect initial state on the toggle button label
   if (document.body.classList.contains('no-demo-hints')) {
     document.getElementById('demo-toggle-btn').textContent = '🎭 Показать подсказки';
@@ -2124,6 +2203,7 @@ function setupEvents() {
 
 loadState();
 loadDemoHintsState();
+loadHideCompletedState();
 renderLogin();
 setupEvents();
 window.addEventListener('popstate', handlePopState);
